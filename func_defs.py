@@ -10,8 +10,9 @@ def get_client(ip, username, password):
 
 def get_topology(stdout):
     connections = []
+    extensionsToCheck = ['fc', 'vfc', 'san-port-channel', 'port-channel']
     for line in stdout:
-        if ('fc' or 'vfc' or 'san-port-channel') in line:
+        if any(ext in line for ext in extensionsToCheck):
             line = line.split()
             peer_ip, switchname = line[3].split('(')
             line[3:5] = peer_ip, switchname
@@ -23,8 +24,9 @@ def get_topology(stdout):
 
 def get_flogi_database(stdout):
     database = []
+    extensionsToCheck = ['fc', 'vfc']
     for line in stdout:
-        if ('fc' or 'vfc') in line :
+        if any(ext in line for ext in extensionsToCheck):
             database.append(line.split())
     df = pd.DataFrame(database, columns = ['Interface', 'VSAN', 'FCID', 'PORT NAME', 'NODE NAME'])
     return df

@@ -60,7 +60,6 @@ df = pd.DataFrame(switch_database, columns = ['Name', 'Mgmt IP', 'Password', 'Vi
 print(df)
 
 import matplotlib.pyplot as plt
-
 from graphviz import Graph,render
 import tempfile
 G = Graph(name='Network Topology for vsan ' + vsan, node_attr={'shape': 'box'})
