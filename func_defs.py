@@ -24,7 +24,7 @@ def get_topology(stdout):
 
 def get_flogi_database(stdout):
     database = []
-    extensionsToCheck = ['fc', 'vfc']
+    extensionsToCheck = ['fc', 'vfc', 'san-port-channel', 'port-channel']
     for line in stdout:
         if any(ext in line for ext in extensionsToCheck):
             database.append(line.split())

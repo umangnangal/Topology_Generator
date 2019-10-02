@@ -35,7 +35,7 @@ while flag:
                     print('Authentication Failure')
                     count = count + 1
                     print("Retrying...[{0}] ".format(count))
-                    password = input('Please neter the password again : ')
+                    password = input('Please neter the password again for {0}'.format(mgmt_ip))
                     item[2] = ''
                     item[3] = 'Retry limit reached [2]'
             if rc:
