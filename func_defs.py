@@ -34,7 +34,7 @@ def get_flogi_database(stdout):
 
 def get_fcns_database(stdout):
     database = []
-    regex = re.compile(r'0x[0-9]{6}')
+    regex = re.compile(r'0x[0-9a-f]{6}')
     for line in stdout:
         mo = re.findall(regex, line)
         if len(mo) >= 1:
