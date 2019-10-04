@@ -1,5 +1,6 @@
 import paramiko
 import pandas as pd
+import re
 
 def get_client(ip, username, password):
     client = paramiko.SSHClient()
@@ -29,6 +30,16 @@ def get_flogi_database(stdout):
         if any(ext in line for ext in extensionsToCheck):
             database.append(line.split())
     df = pd.DataFrame(database, columns = ['Interface', 'VSAN', 'FCID', 'PORT NAME', 'NODE NAME'])
+    return df
+
+def get_fcns_database(stdout):
+    database = []
+    regex = re.compile(r'0x[0-9]{6}')
+    for line in stdout:
+        mo = re.findall(regex, line)
+        if len(mo) >= 1:
+            database.append(line.split())
+    df = pd.DataFrame(database, columns = ['FCID', 'Type', 'PWWN', 'Vendor', 'FC4-TYPE'])
     return df
 
 """

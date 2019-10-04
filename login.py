@@ -92,9 +92,19 @@ for i in range(df.shape[0]):
         stdin, stdout, stderr = client.exec_command(cmd)
         df1 = get_flogi_database(stdout)
         print(df1)
+
+        cmd = 'show fcns database vsan ' + vsan
+        stdin, stdout, stderr = client.exec_command(cmd)
+        df2 = get_fcns_database(stdout)
+        df2 = df2.set_index('FCID')
+        print(df2)
+        
+
         for j in range(df1.shape[0]):
-            G.node(df1['FCID'][j], _attributes={'shape':'oval'})
-            G.edge(df['Name'][i], df1['FCID'][j], taillabel=df1['Interface'][j], labelfontsize="8")
+            fc4_type = df2['FC4-TYPE'][df1['FCID'][j]].replace(':','-')
+            node_name = df1['FCID'][j] + '\n' + fc4_type
+            G.node(node_name, _attributes={'shape':'oval'})
+            G.edge(df['Name'][i], node_name, taillabel=df1['Interface'][j], labelfontsize="8")
         
         client.close()
         
