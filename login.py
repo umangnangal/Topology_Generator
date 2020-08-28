@@ -104,7 +104,7 @@ for i in range(df.shape[0]):
             fc4_type = df2['FC4-TYPE'][df1['FCID'][j]].replace(':','-')
             node_name = df1['FCID'][j] + '\n' + fc4_type
             G.node(node_name, _attributes={'shape':'oval'})
-            G.edge(df['Name'][i], node_name, taillabel=df1['Interface'][j], labelfontsize="8")
+            G.edge(df['Name'][i], node_name, taillabel=df1['Interface'][j], labelfontsize="4")
         
         client.close()
         
