@@ -99,7 +99,6 @@ for i in range(df.shape[0]):
         df2 = df2.set_index('FCID')
         print(df2)
         
-
         for j in range(df1.shape[0]):
             fc4_type = df2['FC4-TYPE'][df1['FCID'][j]].replace(':','-')
             node_name = df1['FCID'][j] + '\n' + fc4_type

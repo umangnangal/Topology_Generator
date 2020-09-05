@@ -93,7 +93,6 @@ def get_topology(stdout):
     df = pd.DataFrame(connections, columns = ['Interface', 'Peer Domain', 'Peer Interface', 'Peer IP Address', 'Switch Name'])
     return df
 
-
 def get_flogi_database(stdout):
     database = []
     extensionsToCheck = ['fc', 'vfc', 'vfc-po', 'san-port-channel', 'port-channel']
