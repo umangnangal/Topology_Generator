@@ -104,18 +104,26 @@ def get_flogi_database(stdout):
 
 def get_fcns_database(stdout):
     database = []
-    regex1 = re.compile(r'0x[0-9a-f]{6}') #Checking if it is the significant line to drop device-alias rows
+    regex1 = re.compile(r'0x[0-9a-f]{6}') #Checking for a valid FCID in the line
     regex2 = re.compile(r'\(.*\)') #Checking if Vendor field is present
     for line in stdout:
         mo = re.findall(regex1, line)
-        if len(mo) >= 1:
+        if mo == None:
+            #Skipping insignificant lines
+            continue
+        if len(line) == 1:
+            #Ignoring the line since it has only device-alias name
+            continue
+        else:
+            #TODO : Parsing the FCNS database properly
             line = line.split()
-            mo = re.fullmatch(regex2, line[3])
-            if mo == None:
-                line.insert(3, '--')
-            if len(line) == 5:
-                line.append('--')
-            database.append(line)
+            if len(line) > 3:
+                mo = re.fullmatch(regex2, line[3]) #Checking if Vendor ID is present
+                if mo == None:
+                    line.insert(3, '--')
+            if len(line) < 6:
+                line.append( (6-len(line))*'--' )
+            database.append(line[:6])
     df = pd.DataFrame(database, columns = ['FCID', 'TYPE', 'PWWN', '(VENDOR)', 'FC4-TYPE', 'FEATURE'])
     return df
 
