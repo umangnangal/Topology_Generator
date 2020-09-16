@@ -108,10 +108,8 @@ def get_fcns_database(stdout):
     regex2 = re.compile(r'\(.*\)') #Checking if Vendor field is present
     for line in stdout:
         mo = re.findall(regex1, line)
-        if mo == None:
+        if mo == None or len(line) == 1:
             #Skipping insignificant lines
-            continue
-        if len(line) == 1:
             #Ignoring the line since it has only device-alias name
             continue
         else:
@@ -121,8 +119,18 @@ def get_fcns_database(stdout):
                 mo = re.fullmatch(regex2, line[3]) #Checking if Vendor ID is present
                 if mo == None:
                     line.insert(3, '--')
-            if len(line) < 6:
-                line.append( (6-len(line))*'--' )
+            if len(line) < 5:
+                line = line + ['--'] * 2
+            else:
+                if ':' in line[4]:
+                    fc4_type, first_feature = line[4].split(':')
+                else:
+                    fc4_type = line[4]
+                    first_feature = '--'
+                line[4] = fc4_type
+                line.insert(5, first_feature)
+                if len(line) > 6:
+                    line[5] = line[5] + ','.join(x for x in line[6:])
             database.append(line[:6])
     df = pd.DataFrame(database, columns = ['FCID', 'TYPE', 'PWWN', '(VENDOR)', 'FC4-TYPE', 'FEATURE'])
     return df

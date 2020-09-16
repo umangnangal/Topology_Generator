@@ -1,0 +1,121 @@
+graph "Network Topology for vsan 200" {
+	node [shape=box]
+	archer1
+	archer2
+	archer1 -- archer2 [headlabel="san-port-channel1" labelfontsize=4 taillabel="san-port-channel1"]
+	archer2
+	archer1 -- archer2 [headlabel="san-port-channel2" labelfontsize=4 taillabel="san-port-channel2"]
+	archer2
+	archer1 -- archer2 [headlabel="san-port-channel3" labelfontsize=4 taillabel="san-port-channel3"]
+	ishaan
+	archer1 -- ishaan [headlabel="san-port-channel100" labelfontsize=4 taillabel="san-port-channel100"]
+	hw1
+	archer1 -- hw1 [headlabel="san-port-channel150" labelfontsize=4 taillabel="san-port-channel150"]
+	mds9710
+	archer1 -- mds9710 [headlabel="san-port-channel160" labelfontsize=4 taillabel="san-port-channel160"]
+	"0x0100a0
+scsi-fcp" [shape=oval]
+	archer1 -- "0x0100a0
+scsi-fcp" [labelfontsize=4 taillabel="fc1/34"]
+	"0x010020
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010020
+scsi-fcp" [labelfontsize=4 taillabel="fc1/63"]
+	"0x010000
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010000
+scsi-fcp" [labelfontsize=4 taillabel="fc1/68"]
+	"0x010040
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010040
+scsi-fcp" [labelfontsize=4 taillabel="san-port-channel254"]
+	"0x010041
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010041
+scsi-fcp" [labelfontsize=4 taillabel="san-port-channel254"]
+	"0x010042
+--" [shape=oval]
+	archer1 -- "0x010042
+--" [labelfontsize=4 taillabel="san-port-channel254"]
+	"0x010043
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010043
+scsi-fcp" [labelfontsize=4 taillabel="san-port-channel254"]
+	"0x010044
+--" [shape=oval]
+	archer1 -- "0x010044
+--" [labelfontsize=4 taillabel="san-port-channel254"]
+	"0x010080
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010080
+scsi-fcp" [labelfontsize=4 taillabel=vfc40]
+	"0x010060
+scsi-fcp" [shape=oval]
+	archer1 -- "0x010060
+scsi-fcp" [labelfontsize=4 taillabel="vfc1/97"]
+	archer2
+	archer1
+	archer1
+	archer1
+	"0x020020
+scsi-fcp" [shape=oval]
+	archer2 -- "0x020020
+scsi-fcp" [labelfontsize=4 taillabel="fc1/92"]
+	"0x020000
+scsi-fcp" [shape=oval]
+	archer2 -- "0x020000
+scsi-fcp" [labelfontsize=4 taillabel=vfc63]
+	"0x020040
+scsi-fcp" [shape=oval]
+	archer2 -- "0x020040
+scsi-fcp" [labelfontsize=4 taillabel="vfc1/97/2"]
+	ishaan
+	archer1
+	ishaan -- archer1 [headlabel="port-channel100" labelfontsize=4 taillabel="port-channel100"]
+	hw1
+	archer1
+	"0xee0000
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0000
+scsi-fcp" [labelfontsize=4 taillabel="fc1/17"]
+	"0xee0040
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0040
+scsi-fcp" [labelfontsize=4 taillabel="fc1/18"]
+	"0xee00ef
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee00ef
+scsi-fcp" [labelfontsize=4 taillabel="fc1/37"]
+	"0xee0060
+npv" [shape=oval]
+	hw1 -- "0xee0060
+npv" [labelfontsize=4 taillabel=vfc33]
+	"0xee0061
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0061
+scsi-fcp" [labelfontsize=4 taillabel=vfc33]
+	"0xee0080
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0080
+scsi-fcp" [labelfontsize=4 taillabel="vfc1/36"]
+	mds9710
+	archer1
+	mds9710 -- archer1 [headlabel="port-channel160" labelfontsize=4 taillabel="port-channel160"]
+	hw2
+	mds9710 -- hw2 [headlabel="port-channel170" labelfontsize=4 taillabel="port-channel170"]
+	"0x0301ef
+scsi-fcp" [shape=oval]
+	mds9710 -- "0x0301ef
+scsi-fcp" [labelfontsize=4 taillabel="fc1/48"]
+	"0x0300ef
+scsi-fcp" [shape=oval]
+	mds9710 -- "0x0300ef
+scsi-fcp" [labelfontsize=4 taillabel="fc8/46"]
+	hw2
+	mds9710
+	hw2 -- mds9710 [headlabel="san-port-channel170" labelfontsize=4 taillabel="san-port-channel170"]
+	"0x050000
+scsi-fcp" [shape=oval]
+	hw2 -- "0x050000
+scsi-fcp" [labelfontsize=4 taillabel=vfc36]
+}
