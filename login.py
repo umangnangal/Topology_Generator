@@ -1,5 +1,6 @@
 import paramiko
 import pandas as pd
+import os
 from func_defs import *
 
 #Setting pandas config
@@ -9,6 +10,17 @@ pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', -1)
 
 switch_database = []
+
+#Fetching passwords from user-provided excel sheet and storing it in a dictionary
+if os.path.isfile('switch_password_data.xlsx'):
+    df = pd.read_excel('switch_password_data.xlsx', worksheet = 1)
+    print(df)
+    switch_password_data = dict()
+    for i in range(df.shape[0]):
+        switch_password_data[df['Switchname'][i]] = df['Password'][i]
+    print(switch_password_data)
+else:
+    print("Please create file 'switch_password_data.xlsx' with Switchname and Password as Header.")
 
 print('----------- Enter the seed switch details -----------')
 mgmt_ip = input('Enter the management ip : ')
@@ -51,7 +63,12 @@ while flag:
                 print(df1)
                 for i in range(df1.shape[0]):
                     if df1['Switch Name'][i] not in [ x[0] for x in switch_database ]:
-                        switch_database.append([ df1['Switch Name'][i], df1['Peer IP Address'][i], input('Enter the password for {0} : '.format(df1['Switch Name'][i])), 0 ])
+                        if df1['Switch Name'][i] in switch_password_data.keys():
+                            print('Switch password already provided by user !!!')
+                            switch_database.append([ df1['Switch Name'][i], df1['Peer IP Address'][i], switch_password_data[df1['Switch Name'][i]], 0 ])
+                        else:
+                            password = input('Enter the password for {0} : '.format(df1['Switch Name'][i]))
+                            switch_database.append([ df1['Switch Name'][i], df1['Peer IP Address'][i], password, 0 ])
                         print('Switch info stored successfully')
                 print(switch_database)
                 client.close()
