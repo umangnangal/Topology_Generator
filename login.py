@@ -13,7 +13,7 @@ switch_database = []
 
 #Fetching passwords from user-provided excel sheet and storing it in a dictionary
 if os.path.isfile('switch_password_data.xlsx'):
-    df = pd.read_excel('switch_password_data.xlsx', worksheet = 1)
+    df = pd.read_excel('switch_password_data.xlsx')
     print(df)
     switch_password_data = dict()
     for i in range(df.shape[0]):
