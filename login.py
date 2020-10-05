@@ -85,7 +85,7 @@ print(df)
 import matplotlib.pyplot as plt
 from graphviz import Graph,render
 import tempfile
-G = Graph(name='Network Topology for vsan ' + vsan, node_attr={'shape': 'box'})
+G = Graph(name='Network Topology for vsan ' + vsan)
 
 for i in range(df.shape[0]):
     print('Entered in switch : ', df['Name'][i])
@@ -95,7 +95,7 @@ for i in range(df.shape[0]):
         stdin, stdout, stderr = client.exec_command(cmd)
         df1 = get_topology(stdout)
         print(df1)
-        G.node(df['Name'][i])
+        G.node(df['Name'][i], _attributes={'shape':'box'})
         for j in range(df1.shape[0]):
             G.node(df1['Switch Name'][j])
             tail = df1['Switch Name'][j]

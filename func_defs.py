@@ -86,6 +86,7 @@ def get_topology(stdout):
     for line in stdout:
         if any(ext in line for ext in extensionsToCheck):
             line = line.split()
+            #TODO : Improve parsing
             peer_ip, switchname = line[3].split('(')
             line[3] = peer_ip
             line.append( switchname.rstrip(')') )

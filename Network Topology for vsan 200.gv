@@ -1,33 +1,5 @@
 graph "Network Topology for vsan 200" {
-	node [shape=box]
-	hw1
-	archer1
-	hw1 -- archer1 [headlabel="san-port-channel150" labelfontsize=4 taillabel="san-port-channel150"]
-	"0xee0000
-scsi-fcp" [shape=oval]
-	hw1 -- "0xee0000
-scsi-fcp" [labelfontsize=4 taillabel="fc1/17"]
-	"0xee0040
-scsi-fcp" [shape=oval]
-	hw1 -- "0xee0040
-scsi-fcp" [labelfontsize=4 taillabel="fc1/18"]
-	"0xee00ef
-scsi-fcp" [shape=oval]
-	hw1 -- "0xee00ef
-scsi-fcp" [labelfontsize=4 taillabel="fc1/37"]
-	"0xee0060
-npv" [shape=oval]
-	hw1 -- "0xee0060
-npv" [labelfontsize=4 taillabel=vfc33]
-	"0xee0061
-scsi-fcp" [shape=oval]
-	hw1 -- "0xee0061
-scsi-fcp" [labelfontsize=4 taillabel=vfc33]
-	"0xee0080
-scsi-fcp" [shape=oval]
-	hw1 -- "0xee0080
-scsi-fcp" [labelfontsize=4 taillabel="vfc1/36"]
-	archer1
+	archer1 [shape=box]
 	archer2
 	archer1 -- archer2 [headlabel="san-port-channel1" labelfontsize=4 taillabel="san-port-channel1"]
 	archer2
@@ -37,6 +9,7 @@ scsi-fcp" [labelfontsize=4 taillabel="vfc1/36"]
 	ishaan
 	archer1 -- ishaan [headlabel="san-port-channel100" labelfontsize=4 taillabel="san-port-channel100"]
 	hw1
+	archer1 -- hw1 [headlabel="san-port-channel150" labelfontsize=4 taillabel="san-port-channel150"]
 	mds9710
 	archer1 -- mds9710 [headlabel="san-port-channel160" labelfontsize=4 taillabel="san-port-channel160"]
 	"0x0100a0
@@ -79,7 +52,7 @@ scsi-fcp" [labelfontsize=4 taillabel=vfc40]
 scsi-fcp" [shape=oval]
 	archer1 -- "0x010060
 scsi-fcp" [labelfontsize=4 taillabel="vfc1/97"]
-	archer2
+	archer2 [shape=box]
 	archer1
 	archer1
 	archer1
@@ -95,10 +68,32 @@ scsi-fcp" [labelfontsize=4 taillabel=vfc63]
 scsi-fcp" [shape=oval]
 	archer2 -- "0x020040
 scsi-fcp" [labelfontsize=4 taillabel="vfc1/97/2"]
-	ishaan
+	ishaan [shape=box]
 	archer1
 	ishaan -- archer1 [headlabel="port-channel100" labelfontsize=4 taillabel="port-channel100"]
-	mds9710
+	hw1 [shape=box]
+	archer1
+	"0xee0040
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0040
+scsi-fcp" [labelfontsize=4 taillabel="fc1/18"]
+	"0xee00ef
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee00ef
+scsi-fcp" [labelfontsize=4 taillabel="fc1/37"]
+	"0xee0060
+npv" [shape=oval]
+	hw1 -- "0xee0060
+npv" [labelfontsize=4 taillabel=vfc33]
+	"0xee0061
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0061
+scsi-fcp" [labelfontsize=4 taillabel=vfc33]
+	"0xee0080
+scsi-fcp" [shape=oval]
+	hw1 -- "0xee0080
+scsi-fcp" [labelfontsize=4 taillabel="vfc1/36"]
+	mds9710 [shape=box]
 	archer1
 	mds9710 -- archer1 [headlabel="port-channel160" labelfontsize=4 taillabel="port-channel160"]
 	hw2
@@ -111,7 +106,7 @@ scsi-fcp" [labelfontsize=4 taillabel="fc1/48"]
 scsi-fcp" [shape=oval]
 	mds9710 -- "0x0300ef
 scsi-fcp" [labelfontsize=4 taillabel="fc8/46"]
-	hw2
+	hw2 [shape=box]
 	mds9710
 	hw2 -- mds9710 [headlabel="san-port-channel170" labelfontsize=4 taillabel="san-port-channel170"]
 	"0x050000
