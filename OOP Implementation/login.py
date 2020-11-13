@@ -11,15 +11,69 @@ pd.set_option('display.max_colwidth', -1)
 
 switch_database = []
 
+class Fabric():
+    devices = []
+    def __init__(self, seed_switch):
+        self.devices.append(seed_switch)
+        print('''
+===========================
+Fabric object initialized
+===========================
+''')
+
+    def list_devices(self):
+        print('Listing all the devices in the fabric :\n')
+        for index,device in zip(range(1, len(self.devices)+1), self.devices):
+            print('Device ', index)
+            device.print_details()
+
+    def add_device(self, switch):
+        if switch.mgmt_ip not in [device.mgmt_ip for device in self.devices]:
+            self.devices.append(switch)
+            print('Device succeesfully added to Fabric.')
+        else:
+            print('Device already present in the Fabric.')
+
+    def search_devices(self):
+        for device in self.devices:
+            print('Entered device :')
+            device.print_details()
+            if device.password != None:
+                stdin, stdout, stderr = device.client.exec_command('show topology vsan 1')
+                extensionsToCheck = ['fc', 'vfc', 'vfc-po', 'san-port-channel', 'port-channel']
+                for line in stdout:
+                    print(line)
+                    if any(ext in line for ext in extensionsToCheck):
+                        line = line.split()
+                        peer_ip, switchname = line[3].split('(')
+                        switchname = switchname.rstrip(')')
+                        print('PEER IP = {0} SWITCHNAME = {1}'.format(peer_ip, switchname))
+                        new_switch = Switch(peer_ip, None, switchname)
+                        new_switch.print_details()
+                        self.add_device(new_switch)
+            else:
+                device.password = ('Please enter device password : ')
+    
+    def show_toplogy(self):
+        pass
+
+
 class Switch():
     vendor = 'CISCO'
-    def __init__(self, mgmt_ip, password):
+    def __init__(self, mgmt_ip, password, switchname = None):
         self.mgmt_ip = mgmt_ip
-        self.password = password
+        if password != None:
+            self.password = password
+        else:
+            self.password = input('Please enter device password : ')
+
         self.client = self.get_client('admin')
 
-        stdin, stdout, stderr = self.client.exec_command('show switchname')
-        self.switchname = stdout.readline().strip()
+        if switchname == None:
+            stdin, stdout, stderr = self.client.exec_command('show switchname')
+            self.switchname = stdout.readline().strip()
+        else:
+            self.switchname = switchname
 
         stdin, stdout, stderr = self.client.exec_command('show inventory')
         self.descr = stdout.readline().split(',')[1].partition(':')[2].strip()
@@ -36,8 +90,9 @@ class Switch():
 
     def print_details(self):
         print('Switch Name : ', self.switchname)
-        print('Management IP : ', self.mgmt_ip)
+        print('Management IP : {0} Password : {1}'.format(self.mgmt_ip, self.password))
         print('Description : ', self.descr)
+        print()
 
     def show_fc_brief(self):
         stdin, stdout, stderr = self.client.exec_command('show interface brief')
@@ -50,6 +105,7 @@ class Switch():
                                                     'Status', 'SFP', 'Oper Mode', 'Oper Speed (Gbps)', 
                                                     'Port Channel'])
         print(df)
+    
 
 
 print('----------- Enter the seed switch details -----------')
@@ -58,5 +114,6 @@ password = input('Enter the password : ')
 vsan = input('Enter the vsan : ')
 
 switch = Switch(mgmt_ip, password)
-switch.print_details()
-switch.show_fc_brief()
+fabric = Fabric(switch)
+fabric.search_devices()
+fabric.list_devices()
