@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from func_defs import *
 
+
 #Setting pandas config
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -39,6 +40,7 @@ Listing all the devices in the fabric :
         for index,device in zip(range(1, len(self.devices)+1), self.devices):
             print('Device ', index)
             device.print_details()
+            device.print_image()
 
     def add_device(self, switch):
         if switch.mgmt_ip not in [device.mgmt_ip for device in self.devices]:
@@ -132,6 +134,12 @@ class Switch():
                 flogi_database.append( line.split() )
         df = pd.DataFrame(flogi_database, columns = ['Interface', 'VSAN', 'FCID', 'PORT NAME', 'NODE NAME'])
         print(df)
+
+
+    #TODO : Use google search image to get image on runtime
+    #Please visit : https://pypi.org/project/Google-Images-Search/
+    def print_image(self):
+        pass
 
 class Interface:
     pass
