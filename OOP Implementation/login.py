@@ -72,6 +72,9 @@ Listing all the devices in the fabric :
 
 class Switch():
     vendor = 'CISCO'
+    eth_interface = []
+    fc_interface = []
+
     def __init__(self, mgmt_ip, password, switchname = None):
         self.mgmt_ip = mgmt_ip
         if password != None:
@@ -114,6 +117,7 @@ class Switch():
         print()
 
     def show_fc_brief(self):
+        print('Interface Details :')
         stdin, stdout, stderr = self.client.exec_command('show interface brief')
         interface_info = []
         for line in stdout:
@@ -126,6 +130,7 @@ class Switch():
         print(df)
 
     def show_flogi_database(self):
+        print('Flogi Database : ')
         stdin, stdout, stderr = self.client.exec_command('show flogi database')
         flogi_database = []
         extensionsToCheck = ['fc', 'vfc', 'vfc-po', 'san-port-channel', 'port-channel']
@@ -134,6 +139,25 @@ class Switch():
                 flogi_database.append( line.split() )
         df = pd.DataFrame(flogi_database, columns = ['Interface', 'VSAN', 'FCID', 'PORT NAME', 'NODE NAME'])
         print(df)
+
+    def get_fc_interfaces(self):
+        print('Fetching fc interfaces...')
+        stdin, stdout, stderr = self.client.exec_command('show interface brief | i fc')
+        for line in stdout:
+            print('Adding fc interface : ', line.split())
+            name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel = line.split()
+            fc_intf = FcInterface(self.client, name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel)
+            self.fc_interface.append(fc_intf)
+
+    def get_eth_interfaces(self):
+        print('Fetching eth interfaces...')
+        stdin, stdout, stderr = self.client.exec_command('show interface brief | i eth')
+        for line in stdout:
+            print('Adding eth interfcae : ', line.split())
+            name, vlan, type, mode, status, reason, speed, port_channel = line.split()
+            eth_intf = EthInterface(self.client, name, vlan, type, mode, status, reason, speed, port_channel)
+            self.eth_interface.append(eth_intf)
+
 
 
     #TODO : Use google search image to get image on runtime
@@ -144,8 +168,35 @@ class Switch():
 class Interface:
     pass
 
+
+
 class FcInterface(Interface):
-    pass
+    def __init__(self, client, name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel):
+        self.client = client
+        self.name = name
+        self.vsan = vsan
+        self.admin_mode = admin_mode
+        self.admin_trunk_mode = admin_trunk_mode
+        self.status = status
+        self.sfp = sfp
+        self.oper_mode = oper_mode
+        self.oper_speed = oper_speed
+        self.port_channel = port_channel
+
+    def shut(self):
+        print('Shutting interface : ', self.name)
+        self.client.exec_command('interface {}'.format(self.name))
+        self.client.exec_command('shutdown')
+
+    def no_shut(self):
+        print('Un shuttting interface : ', self.name)
+        self.client.exec_command('interface {}'.format(self.name))
+        self.client.exec_command('no shutdown')
+
+    def flap(self):
+        print('Flapping interface : ', self.name)
+        self.shut()
+        self.no_shut()
 
 class EthInterface(Interface):
     pass
@@ -172,3 +223,10 @@ switch = Switch(mgmt_ip, password)
 fabric = Fabric(switch)
 fabric.search_devices()
 fabric.list_devices()
+
+switch.show_fc_brief()
+switch.show_flogi_database()
+
+switch.get_fc_interfaces()
+
+switch.fc_interface[0].flap()
