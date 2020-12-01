@@ -210,23 +210,24 @@ class SanPortChannel(Interface):
 class VfcPortChannel(Interface):
     pass
 
-print('''
-==============================
-Enter the seed switch details 
-==============================
-''')
-mgmt_ip = input('Enter the management ip : ')
-password = input('Enter the password : ')
-vsan = input('Enter the vsan : ')
+if __name__ == '__main__':
+    print('''
+    ==============================
+    Enter the seed switch details 
+    ==============================
+    ''')
+    mgmt_ip = input('Enter the management ip : ')
+    password = input('Enter the password : ')
+    vsan = input('Enter the vsan : ')
 
-switch = Switch(mgmt_ip, password)
-fabric = Fabric(switch)
-fabric.search_devices()
-fabric.list_devices()
+    switch = Switch(mgmt_ip, password)
+    fabric = Fabric(switch)
+    fabric.search_devices()
+    fabric.list_devices()
 
-switch.show_fc_brief()
-switch.show_flogi_database()
+    switch.show_fc_brief()
+    switch.show_flogi_database()
 
-switch.get_fc_interfaces()
+    switch.get_fc_interfaces()
 
-switch.fc_interface[0].flap()
+    switch.fc_interface[0].flap()
