@@ -1,5 +1,6 @@
 import paramiko
 import pandas as pd
+import re
 import os
 
 
@@ -177,6 +178,47 @@ class Switch():
         zone_dict = self.get_zoneset_active_data(vsan)
         for key in zone_dict.keys():
             print(key, zone_dict[key])
+
+    def get_fcns_database(self, vsan = 1):
+        print('Getting fcns dattabase for vsan {}'.format(vsan))
+        fcns_entries = []
+        cli = 'show fcns database vsan {}'.format(vsan)
+        stdin, stdout, stderr = self.client.exec_command(cli)
+        fcns_data = stdout.readlines()
+        fcns_data = [line.strip() for line in fcns_data]
+
+        regex1 = re.compile(r'0x[0-9a-f]{6}') #Checking for a valid FCID in the line
+        regex2 = re.compile(r'\(.*\)') #Checking if Vendor field is present
+
+        for line in fcns_data:
+            mo = re.findall(regex1, line)
+            if len(mo) == 0 or len(line.split()) == 1:
+                #Skipping insignificant lines
+                #Ignoring the line since it has only device-alias name
+                continue
+            else:
+                #TODO : Parsing the FCNS database properly
+                mo = re.findall(regex2, line)
+                if len(mo) == 1:
+                    fcid, port_type, pwwn, vendor, *fc4_protocol_feature = line.split()
+                    vendor = vendor.lstrip('(').rstrip(')')
+                else:
+                    fcid, port_type, pwwn, *fc4_protocol_feature = line.split()
+                    vendor = None
+                
+                fc4, protocol = fc4_protocol_feature[0].partition(':')[0].split('-')
+                features = fc4_protocol_feature[0].partition(':')[2] + ' ' + ' '.join(x for x in fc4_protocol_feature[1:])
+                features = features.split()
+                fcns_entries.append((fcid, port_type, pwwn, vendor, fc4, protocol, features))
+        
+        return fcns_entries
+
+    def show_fcns_database(self, vsan = 1):
+        fcns_entries = self.get_fcns_database(vsan)
+        for entry in fcns_entries:
+            print(entry)
+
+                
 
     # TODO : Use google search image to get image on runtime
     # Please visit : https://pypi.org/project/Google-Images-Search/
