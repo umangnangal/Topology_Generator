@@ -1,16 +1,15 @@
 import paramiko
 import pandas as pd
 import os
-from func_defs import *
 
 
-#Setting pandas config
+# Setting pandas config
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', -1)
 
-#Fetching passwords from user-provided excel sheet and storing it in a dictionary
+# Fetching passwords from user-provided excel sheet and storing it in a dictionary
 if os.path.isfile('device_password_mapping.xlsx'):
     df = pd.read_excel('device_password_mapping.xlsx')
     print(df)
@@ -25,18 +24,10 @@ class Fabric():
     devices = []
     def __init__(self, seed_switch):
         self.devices.append(seed_switch)
-        print('''
-==========================
-Fabric object initialized
-==========================
-''')
+        print('Fabric object initialized')
 
     def list_devices(self):
-        print('''
-=======================================
-Listing all the devices in the fabric :
-=======================================
-        ''')
+        print('Listing all the devices in the fabric')
         for index,device in zip(range(1, len(self.devices)+1), self.devices):
             print('Device ', index)
             device.print_details()
@@ -49,10 +40,17 @@ Listing all the devices in the fabric :
         else:
             print('Device already present in the Fabric.')
 
-    def search_devices(self):
+    def remove_device(self, switch):
+        if switch.mgmt_ip in [device.mgmt_ip for device in self.devices]:
+            self.devices.remove(switch)
+            print('Device succeesfully removed from Fabric.')
+        else:
+            print('Device not present in the Fabric.')
+            
+    def search_devices(self, vsan = 1):
         for device in self.devices:
             if device.password != None:
-                stdin, stdout, stderr = device.client.exec_command('show topology vsan 1')
+                stdin, stdout, stderr = device.client.exec_command('show topology vsan {}'.format(vsan))
                 extensionsToCheck = ['fc', 'vfc', 'vfc-po', 'san-port-channel', 'port-channel']
                 for line in stdout:
                     if any(ext in line for ext in extensionsToCheck):
@@ -72,8 +70,8 @@ Listing all the devices in the fabric :
 
 class Switch():
     vendor = 'CISCO'
-    eth_interface = []
-    fc_interface = []
+    eth_interface = {}
+    fc_interface = {}
 
     def __init__(self, mgmt_ip, password, switchname = None):
         self.mgmt_ip = mgmt_ip
@@ -116,19 +114,6 @@ class Switch():
         print('Description : ', self.descr)
         print()
 
-    def show_fc_brief(self):
-        print('Interface Details :')
-        stdin, stdout, stderr = self.client.exec_command('show interface brief')
-        interface_info = []
-        for line in stdout:
-            if 'fc' in line and 'vfc' not in line:
-                line = line.split()
-                interface_info.append(line)
-        df = pd.DataFrame(interface_info, columns =['Interface', 'VSAN', 'Admin Mode', 'Admin Trunk Mode', 
-                                                    'Status', 'SFP', 'Oper Mode', 'Oper Speed (Gbps)', 
-                                                    'Port Channel'])
-        print(df)
-
     def show_flogi_database(self):
         print('Flogi Database : ')
         stdin, stdout, stderr = self.client.exec_command('show flogi database')
@@ -140,34 +125,96 @@ class Switch():
         df = pd.DataFrame(flogi_database, columns = ['Interface', 'VSAN', 'FCID', 'PORT NAME', 'NODE NAME'])
         print(df)
 
-    def get_fc_interfaces(self):
+    def show_int_brief_fc(self, intf = ''):
         print('Fetching fc interfaces...')
-        stdin, stdout, stderr = self.client.exec_command('show interface brief | i fc')
+        cli = 'show interface {} brief | i fc | exc vfc'.format(intf)
+        stdin, stdout, stderr = self.client.exec_command(cli)
         for line in stdout:
-            print('Adding fc interface : ', line.split())
+            print(line)
             name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel = line.split()
             fc_intf = FcInterface(self.client, name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel)
-            self.fc_interface.append(fc_intf)
+            self.fc_interface.update({fc_intf.name : fc_intf})
 
-    def get_eth_interfaces(self):
+    def show_int_brief_eth(self, intf = ''):
         print('Fetching eth interfaces...')
-        stdin, stdout, stderr = self.client.exec_command('show interface brief | i eth')
+        cli = 'show interface {} brief | i eth'.format(intf)
+        stdin, stdout, stderr = self.client.exec_command(cli)
         for line in stdout:
+            print(line)
             print('Adding eth interfcae : ', line.split())
             name, vlan, type, mode, status, reason, speed, port_channel = line.split()
             eth_intf = EthInterface(self.client, name, vlan, type, mode, status, reason, speed, port_channel)
-            self.eth_interface.append(eth_intf)
+            self.eth_interface.update({eth_intf.name : eth_intf})
 
+    #Returns a dictionary.
+    def get_zoneset_active_data(self, vsan = 1):
+        print('Getting active zoneset info for vsan {}'.format(vsan))
+        cli = 'show zoneset active vsan {}'.format(vsan)
+        stdin, stdout, stderr = self.client.exec_command(cli)
+        zone_data = stdout.readlines()
+        zone_data = [line.strip().strip('*').strip() for line in zone_data]
 
+        zone_dict = dict()
+        keywordsToCheck = ['fcid', 'pwwn', 'fwwn', 'fcalias']
 
-    #TODO : Use google search image to get image on runtime
-    #Please visit : https://pypi.org/project/Google-Images-Search/
+        for line in zone_data:
+            if line == '':
+                continue
+            if line.split()[0] == 'zoneset':
+                zoneset_name = line.split()[2]
+                print('Active Zoneset : {}'.format(zoneset_name))
+            if line.split()[0] == 'zone':
+                zone_name = line.split()[2]
+                zone_dict[zone_name] = []
+            if any(keyword in line.split() for keyword in keywordsToCheck):
+                key = line.split()[0]
+                value = line.split()[1]
+                zone_dict[zone_name].append((key, value))
+                
+        return zone_dict
+        
+    def show_zoneset_active(self, vsan = 1):
+        zone_dict = self.get_zoneset_active_data(vsan)
+        for key in zone_dict.keys():
+            print(key, zone_dict[key])
+
+    # TODO : Use google search image to get image on runtime
+    # Please visit : https://pypi.org/project/Google-Images-Search/
     def print_image(self):
         pass
 
+# Super class, defined to hold common functionalities of an interface.
+# Do not use it for instantiation
 class Interface:
-    pass
+    def show(self):
+        for key, value in self.__dict__.items():
+            print(key, value)
+    
+    def show_brief(self):
+        for value in self.__dict__.values():
+            print(value, end = ' ')
 
+    def shut(self):
+        print('Shutting interface : ', self.name)
+        channel = self.client.invoke_shell()
+        channel.send('configure terminal \n')
+        channel.send('interface {} \n'.format(self.name))
+        channel.send('shutdown \n')
+        channel.send('exit \n')
+        
+
+    def no_shut(self):
+        print('Un shuttting interface : ', self.name)
+        channel = self.client.invoke_shell()
+        channel.send('configure terminal \n')
+        channel.send('interface {} \n'.format(self.name))
+        channel.send('no shutdown \n')
+        channel.send('exit \n')
+
+    def flap(self):
+        print('Flapping interface : ', self.name)
+        self.shut()
+        self.no_shut()
 
 
 class FcInterface(Interface):
@@ -183,23 +230,17 @@ class FcInterface(Interface):
         self.oper_speed = oper_speed
         self.port_channel = port_channel
 
-    def shut(self):
-        print('Shutting interface : ', self.name)
-        self.client.exec_command('interface {}'.format(self.name))
-        self.client.exec_command('shutdown')
-
-    def no_shut(self):
-        print('Un shuttting interface : ', self.name)
-        self.client.exec_command('interface {}'.format(self.name))
-        self.client.exec_command('no shutdown')
-
-    def flap(self):
-        print('Flapping interface : ', self.name)
-        self.shut()
-        self.no_shut()
 
 class EthInterface(Interface):
-    pass
+    def __init__(self, client, name, vlan, type, mode, status, reason, speed, port_channel):
+        self.client = client
+        self.name = name
+        self.vlan = vlan
+        self.mode = mode
+        self.status = status
+        self.reason = reason
+        self.speed = speed
+        self.port_channel = port_channel
 
 class VfcInterface(Interface):
     pass
@@ -211,11 +252,7 @@ class VfcPortChannel(Interface):
     pass
 
 if __name__ == '__main__':
-    print('''
-    ==============================
-    Enter the seed switch details 
-    ==============================
-    ''')
+    print('Enter the seed switch details')
     mgmt_ip = input('Enter the management ip : ')
     password = input('Enter the password : ')
     vsan = input('Enter the vsan : ')
