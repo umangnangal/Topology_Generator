@@ -3,7 +3,6 @@ import pandas as pd
 import re
 import os
 
-
 # Setting pandas config
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
@@ -21,6 +20,76 @@ if os.path.isfile('device_password_mapping.xlsx'):
 else:
     print("Please create file 'device_password_mapping.xlsx' with Switchname and Password as Header.")
 
+
+import logging
+from neo4j import GraphDatabase
+from neo4j.exceptions import ServiceUnavailable
+
+class App:
+
+    def __init__(self, uri, user, password):
+        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+
+    def close(self):
+        # Don't forget to close the driver connection when you are finished with it
+        self.driver.close()
+
+    def create_link(self, switch, other, link_type):
+        with self.driver.session() as session:
+            # Write transactions allow the driver to handle retries and transient errors
+            result = session.write_transaction(
+                self._create_and_return_link, switch, other, link_type)
+            '''
+            for record in result:
+                print("Created link between: {p1}, {p2}".format(
+                    p1=record['p1'], p2=record['p2']))
+            '''
+
+
+    @staticmethod
+    def _create_and_return_link(tx, switch, other, link_type):
+
+        # To learn more about the Cypher syntax,
+        # see https://neo4j.com/docs/cypher-manual/current/
+
+        # The Reference Card is also a good resource for keywords,
+        # see https://neo4j.com/docs/cypher-refcard/current/
+        if link_type == 'N':
+            query = (
+                "MERGE (p1:Switch { name: $switch }) "
+                "MERGE (p2:Device { fcid: $fcid }) "
+                "MERGE (p1)-[:FLOGI]->(p2) "
+                "RETURN p1, p2"
+            )
+            result = tx.run(query, switch=switch, fcid=other)
+        elif link_type == 'E':
+            query = (
+                "MERGE (p1:Switch { name: $switch1 }) "
+                "MERGE (p2:Switch { name: $switch2 }) "
+                "MERGE (p1)-[:E_LINK]->(p2) "
+                "RETURN p1, p2"
+            )
+            result = tx.run(query, switch1=switch, switch2=other)
+
+    def find_switch(self, switchname):
+        with self.driver.session() as session:
+            result = session.read_transaction(self._find_and_return_switch, switchname)
+            '''
+            for record in result:
+                print("Found switch: {record}".format(record=record))
+            '''
+
+
+    @staticmethod
+    def _find_and_return_switch(tx, person_name):
+        query = (
+            "MATCH (p:Switch) "
+            "WHERE p.name = $switchname "
+            "RETURN p.name AS switchname"
+        )
+        result = tx.run(query, switchname=switchname)
+        return [record["name"] for record in result]
+    
 class Fabric():
     devices = []
     def __init__(self, seed_switch):
@@ -64,9 +133,6 @@ class Fabric():
                         self.add_device(new_switch)
             else:
                 device.password = ('Please enter device password : ')
-    
-    def show_toplogy(self):
-        pass
 
 
 class Switch():
@@ -106,7 +172,7 @@ class Switch():
         client.load_system_host_keys()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(self.mgmt_ip, username = username, password = self.password)
-        print('Paramiko client created successfully.')
+        print('Paramiko client created successfully : ', client)
         return client
 
     def print_details(self):
@@ -115,17 +181,41 @@ class Switch():
         print('Description : ', self.descr)
         print()
 
-    def show_flogi_database(self):
-        print('Flogi Database : ')
-        stdin, stdout, stderr = self.client.exec_command('show flogi database')
+    def get_topology(self, vsan = 1):
+        peer_connections = []
+        cli = 'show topology vsan {}'.format(vsan)
+        extensionsToCheck = ['fc', 'vfc', 'vfc-po', 'san-port-channel', 'port-channel']
+        stdin, stdout, stderr = self.client.exec_command(cli)
+        for line in stdout:
+            if any(ext in line for ext in extensionsToCheck):
+                line = line.split()
+                peer_ip, switchname = line[3].split('(')
+                line[3] = peer_ip
+                line.append( switchname.rstrip(')') )
+                peer_connections.append(line)
+        df = pd.DataFrame(peer_connections, columns = ['Interface', 'Peer Domain', 'Peer Interface', 'Peer IP Address', 'Switch Name'])
+        return df
+        
+    def show_topology(self, vsan = 1):
+        peer_connections = self.get_topology(vsan)
+        print(peer_connections)
+
+    def get_flogi_database(self, vsan = 1):
         flogi_database = []
+        cli = 'show flogi database vsan {}'.format(vsan)
+        stdin, stdout, stderr = self.client.exec_command(cli)
         extensionsToCheck = ['fc', 'vfc', 'vfc-po', 'san-port-channel', 'port-channel']
         for line in stdout:
             if any(ext in line for ext in extensionsToCheck):
                 flogi_database.append( line.split() )
+        
         df = pd.DataFrame(flogi_database, columns = ['Interface', 'VSAN', 'FCID', 'PORT NAME', 'NODE NAME'])
-        print(df)
-
+        return df
+    
+    def show_flogi_database(self, vsan = 1):
+        flogi_database = self.get_flogi_database(vsan)
+        print(flogi_database)
+        
     def show_int_brief_fc(self, intf = ''):
         print('Fetching fc interfaces...')
         cli = 'show interface {} brief | i fc | exc vfc'.format(intf)
@@ -148,7 +238,7 @@ class Switch():
             self.eth_interface.update({eth_intf.name : eth_intf})
 
     #Returns a dictionary.
-    def get_zoneset_active_data(self, vsan = 1):
+    def get_zoneset_active(self, vsan = 1):
         print('Getting active zoneset info for vsan {}'.format(vsan))
         cli = 'show zoneset active vsan {}'.format(vsan)
         stdin, stdout, stderr = self.client.exec_command(cli)
@@ -175,7 +265,7 @@ class Switch():
         return zone_dict
         
     def show_zoneset_active(self, vsan = 1):
-        zone_dict = self.get_zoneset_active_data(vsan)
+        zone_dict = self.get_zoneset_active(vsan)
         for key in zone_dict.keys():
             print(key, zone_dict[key])
 

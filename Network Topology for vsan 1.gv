@@ -1,0 +1,3 @@
+graph "Network Topology for vsan 1" {
+	"Minishan-Edge-DUT2" [shape=box]
+}
