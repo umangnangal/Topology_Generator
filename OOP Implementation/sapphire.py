@@ -200,6 +200,7 @@ class Switch():
         peer_connections = self.get_topology(vsan)
         print(peer_connections)
 
+    # Returns a pandas dataframe of flogi entries
     def get_flogi_database(self, vsan = 1):
         flogi_database = []
         cli = 'show flogi database vsan {}'.format(vsan)
@@ -269,6 +270,7 @@ class Switch():
         for key in zone_dict.keys():
             print(key, zone_dict[key])
 
+    # Returns a list of fcns entries
     def get_fcns_database(self, vsan = 1):
         print('Getting fcns dattabase for vsan {}'.format(vsan))
         fcns_entries = []
