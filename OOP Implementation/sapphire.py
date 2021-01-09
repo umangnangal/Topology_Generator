@@ -12,11 +12,11 @@ pd.set_option('display.max_colwidth', None)
 # Fetching passwords from user-provided excel sheet and storing it in a dictionary
 if os.path.isfile('device_password_mapping.xlsx'):
     df = pd.read_excel('device_password_mapping.xlsx')
-    print(df)
+    print(df.head())
     device_password_mapping = dict()
     for i in range(df.shape[0]):
         device_password_mapping[df['Management IP'][i]] = df['Password'][i]
-    print(device_password_mapping)
+    #print(device_password_mapping)
 else:
     print("Please create file 'device_password_mapping.xlsx' with Switchname and Password as Header.")
 
@@ -34,6 +34,22 @@ class App:
         # Don't forget to close the driver connection when you are finished with it
         self.driver.close()
 
+    def create_port_node(self, parent_switch, interface):
+        with self.driver.session() as session:
+            # Write transactions allow the driver to handle retries and transient errors
+            result = session.write_transaction(
+                self._create_and_return_port_node, parent_switch, interface)
+
+    @staticmethod
+    def _create_and_return_port_node(tx, parent_switch, interface):
+        query = (
+            "MERGE (p1:Switch { name: $switchname }) "
+            "MERGE (p2:Port { name: $switchname + '_' + $interface }) "
+            "MERGE (p1)-[:child_port]->(p2) "
+            "RETURN p1, p2"
+        )
+        tx.run(query, switchname=parent_switch, interface=interface)
+
     def create_link(self, switch, other, link_type):
         with self.driver.session() as session:
             # Write transactions allow the driver to handle retries and transient errors
@@ -47,7 +63,7 @@ class App:
 
 
     @staticmethod
-    def _create_and_return_link(tx, switch, other, link_type):
+    def _create_and_return_link(tx, switch_port, other, link_type):
 
         # To learn more about the Cypher syntax,
         # see https://neo4j.com/docs/cypher-manual/current/
@@ -56,12 +72,12 @@ class App:
         # see https://neo4j.com/docs/cypher-refcard/current/
         if link_type == 'N':
             query = (
-                "MERGE (p1:Switch { name: $switch }) "
+                "MERGE (p1:Port { name: $switch_port }) "
                 "MERGE (p2:Device { fcid: $fcid }) "
-                "MERGE (p1)-[:FLOGI]->(p2) "
+                "MERGE (p1)-[:TBD]->(p2) "
                 "RETURN p1, p2"
             )
-            result = tx.run(query, switch=switch, fcid=other)
+            result = tx.run(query, switch_port=switch_port, fcid=other)
         elif link_type == 'E':
             query = (
                 "MERGE (p1:Switch { name: $switch1 }) "
@@ -81,7 +97,7 @@ class App:
 
 
     @staticmethod
-    def _find_and_return_switch(tx, person_name):
+    def _find_and_return_switch(tx, switchname):
         query = (
             "MATCH (p:Switch) "
             "WHERE p.name = $switchname "
@@ -125,12 +141,17 @@ class Fabric():
                 for line in stdout:
                     if any(ext in line for ext in extensionsToCheck):
                         line = line.split()
-                        peer_ip, switchname = line[3].split('(')
-                        switchname = switchname.rstrip(')')
-                        print('PEER IP = {0} SWITCHNAME = {1}'.format(peer_ip, switchname))
-                        new_switch = Switch(peer_ip, None, switchname)
-                        #new_switch.print_details()
-                        self.add_device(new_switch)
+                        try:
+                            peer_ip, switchname = line[3].split('(')
+                        except ValueError:
+                            print('Getting value error, hence skipping this iteration')
+                            continue
+                        else:
+                            switchname = switchname.rstrip(')')
+                            print('PEER IP = {0} SWITCHNAME = {1}'.format(peer_ip, switchname))
+                            new_switch = Switch(peer_ip, None, switchname)
+                            #new_switch.print_details()
+                            self.add_device(new_switch)
             else:
                 device.password = ('Please enter device password : ')
 
@@ -244,10 +265,11 @@ class Switch():
         cli = 'show zoneset active vsan {}'.format(vsan)
         stdin, stdout, stderr = self.client.exec_command(cli)
         zone_data = stdout.readlines()
-        zone_data = [line.strip().strip('*').strip() for line in zone_data]
+        zone_data = [line.strip() for line in zone_data]
+        #zone_data = [line.strip().strip('*').strip() for line in zone_data]
 
         zone_dict = dict()
-        keywordsToCheck = ['fcid', 'pwwn', 'fwwn', 'fcalias']
+        keywordsToCheck = ['fcid', 'pwwn', 'fwwn', 'fcalias', 'device-alias']
 
         for line in zone_data:
             if line == '':
@@ -259,9 +281,13 @@ class Switch():
                 zone_name = line.split()[2]
                 zone_dict[zone_name] = []
             if any(keyword in line.split() for keyword in keywordsToCheck):
-                key = line.split()[0]
-                value = line.split()[1]
-                zone_dict[zone_name].append((key, value))
+                if '*' not in line.split():
+                    #Continuing since the member is not online, hence, cannot get the flogi.
+                    continue
+                else:
+                    key = line.split()[1]
+                    value = line.split()[2]
+                    zone_dict[zone_name].append((key, value))
                 
         return zone_dict
         
@@ -272,7 +298,7 @@ class Switch():
 
     # Returns a list of fcns entries
     def get_fcns_database(self, vsan = 1):
-        print('Getting fcns dattabase for vsan {}'.format(vsan))
+        print('Getting fcns database for vsan {}'.format(vsan))
         fcns_entries = []
         cli = 'show fcns database vsan {}'.format(vsan)
         stdin, stdout, stderr = self.client.exec_command(cli)
