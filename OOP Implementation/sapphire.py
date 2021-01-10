@@ -2,6 +2,9 @@ import paramiko
 import pandas as pd
 import re
 import os
+import logging
+from neo4j import GraphDatabase
+from neo4j.exceptions import ServiceUnavailable
 
 # Setting pandas config
 pd.set_option('display.max_rows', None)
@@ -20,10 +23,20 @@ if os.path.isfile('device_password_mapping.xlsx'):
 else:
     print("Please create file 'device_password_mapping.xlsx' with Switchname and Password as Header.")
 
-
-import logging
-from neo4j import GraphDatabase
-from neo4j.exceptions import ServiceUnavailable
+def get_switch_port(fabric, vsan, fcid):
+    #print('Getting switch_port for fcid {}'.format(fcid))
+    for switch in fabric.devices:
+        #print('Searching for FCID {} in switch {}'.format(fcid, switch.switchname))
+        flogi_df = switch.get_flogi_database(vsan)
+        port = flogi_df.loc[flogi_df['FCID'] == fcid]['Interface'].values
+        if len(port) == 1:
+            #print('FCID found')
+            switch_port = switch.switchname + '_' + port[0]
+            break
+        else:
+            #print('FCID {} not found, going to next switch...')
+            continue
+    return switch_port
 
 class App:
 
@@ -63,7 +76,7 @@ class App:
 
 
     @staticmethod
-    def _create_and_return_link(tx, switch_port, other, link_type):
+    def _create_and_return_link(tx, node1, node2, link_type):
 
         # To learn more about the Cypher syntax,
         # see https://neo4j.com/docs/cypher-manual/current/
@@ -77,7 +90,8 @@ class App:
                 "MERGE (p1)-[:TBD]->(p2) "
                 "RETURN p1, p2"
             )
-            result = tx.run(query, switch_port=switch_port, fcid=other)
+            result = tx.run(query, switch_port=node1, fcid=node2)
+            
         elif link_type == 'E':
             query = (
                 "MERGE (p1:Switch { name: $switch1 }) "
@@ -85,7 +99,16 @@ class App:
                 "MERGE (p1)-[:E_LINK]->(p2) "
                 "RETURN p1, p2"
             )
-            result = tx.run(query, switch1=switch, switch2=other)
+            result = tx.run(query, switch1=node1, switch2=node2)
+            
+        elif link_type == 'V':
+            query = (
+                "MERGE (p1:Port { name: $switch_port1 }) "
+                "MERGE (p2:Port { name: $switch_port2 }) "
+                "MERGE (p1)-[:V_Link]->(p2) "
+                "RETURN p1, p2"
+            )
+            result = tx.run(query, switch_port1=node1, switch_port2=node2)
 
     def find_switch(self, switchname):
         with self.driver.session() as session:
@@ -160,6 +183,8 @@ class Switch():
     vendor = 'CISCO'
     eth_interface = {}
     fc_interface = {}
+    vfc_interface = {}
+    sanpo_interface = {}
 
     def __init__(self, mgmt_ip, password, switchname = None):
         self.mgmt_ip = mgmt_ip
@@ -238,16 +263,6 @@ class Switch():
         flogi_database = self.get_flogi_database(vsan)
         print(flogi_database)
         
-    def show_int_brief_fc(self, intf = ''):
-        print('Fetching fc interfaces...')
-        cli = 'show interface {} brief | i fc | exc vfc'.format(intf)
-        stdin, stdout, stderr = self.client.exec_command(cli)
-        for line in stdout:
-            print(line)
-            name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel = line.split()
-            fc_intf = FcInterface(self.client, name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel)
-            self.fc_interface.update({fc_intf.name : fc_intf})
-
     def show_int_brief_eth(self, intf = ''):
         print('Fetching eth interfaces...')
         cli = 'show interface {} brief | i eth'.format(intf)
@@ -258,6 +273,39 @@ class Switch():
             name, vlan, type, mode, status, reason, speed, port_channel = line.split()
             eth_intf = EthInterface(self.client, name, vlan, type, mode, status, reason, speed, port_channel)
             self.eth_interface.update({eth_intf.name : eth_intf})
+        
+    def show_int_brief_fc(self, intf = ''):
+        print('Fetching fc interfaces...')
+        cli = 'show interface {} brief | i fc | exc vfc'.format(intf)
+        stdin, stdout, stderr = self.client.exec_command(cli)
+        for line in stdout:
+            print(line)
+            name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel = line.split()
+            fc_intf = FcInterface(self.client, name, vsan, admin_mode, admin_trunk_mode, status, sfp, oper_mode, oper_speed, port_channel)
+            self.fc_interface.update({fc_intf.name : fc_intf})
+          
+    def show_int_brief_vfc(self, intf = ''):
+        print('Fetching vfc interfaces...')
+        cli = 'show interface {} brief | i vfc | exc vfc-po'.format(intf)
+        stdin, stdout, stderr = self.client.exec_command(cli)
+        for line in stdout:
+            print(line)
+            name, vsan, admin_mode, admin_trunk_mode, status, bind_info, oper_mode, oper_speed = line.split()
+            vfc_intf = VfcInterface(self.client, name, vsan, admin_mode, admin_trunk_mode, status, bind_info, oper_mode, oper_speed)
+            self.vfc_interface.update({vfc_intf.name : vfc_intf})
+            
+    def show_int_brief_sanpo(self, intf = ''):
+        print('Fetching san-port-channel interfaces...')
+        cli = 'show interface {} brief | i san-port-channel'.format(intf)
+        stdin, stdout, stderr = self.client.exec_command(cli)
+        for line in stdout:
+            print(line)
+            name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr = line.split()
+            sanpo_intf = SanPortChannel(self.client, name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr)
+            self.sanpo_interface.update({sanpo_intf.name : sanpo_intf})
+            
+    def show_int_brief_vfcpo(self, intf = ''):
+        pass
 
     #Returns a dictionary.
     def get_zoneset_active(self, vsan = 1):
@@ -390,7 +438,6 @@ class FcInterface(Interface):
         self.oper_speed = oper_speed
         self.port_channel = port_channel
 
-
 class EthInterface(Interface):
     def __init__(self, client, name, vlan, type, mode, status, reason, speed, port_channel):
         self.client = client
@@ -403,10 +450,27 @@ class EthInterface(Interface):
         self.port_channel = port_channel
 
 class VfcInterface(Interface):
-    pass
+    def __init__(self, client, name, vsan, admin_mode, admin_trunk_mode, status, bind_info, oper_mode, oper_speed):
+        self.client = client
+        self.name = name
+        self.vsan = vsan
+        self.admin_mode = admin_mode
+        self.admin_trunk_mode = admin_trunk_mode
+        self.status = status
+        self.bind_info = bind_info
+        self.oper_mode = oper_mode
+        self.oper_speed = oper_speed
 
 class SanPortChannel(Interface):
-    pass
+    def __init__(self, client, name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr):
+        self.client = client
+        self.name = name
+        self.vsan = vsan
+        self.admin_trunk_mode = admin_trunk_mode
+        self.status = status
+        self.oper_mode = oper_mode
+        self.oper_speed = oper_speed
+        self.ip_addr = ip_addr
 
 class VfcPortChannel(Interface):
     pass
