@@ -23,20 +23,27 @@ if os.path.isfile('device_password_mapping.xlsx'):
 else:
     print("Please create file 'device_password_mapping.xlsx' with Switchname and Password as Header.")
 
-def get_switch_port(fabric, vsan, fcid):
+def get_switch_port(fabric, vsan, identifier_type, indentifier):
     #print('Getting switch_port for fcid {}'.format(fcid))
     for switch in fabric.devices:
         #print('Searching for FCID {} in switch {}'.format(fcid, switch.switchname))
         flogi_df = switch.get_flogi_database(vsan)
-        port = flogi_df.loc[flogi_df['FCID'] == fcid]['Interface'].values
+        if identifier_type == 'fcid':
+            port = flogi_df.loc[flogi_df['FCID'] == indentifier]['Interface'].values
+        elif identifier_type == 'pwwn':
+            port = flogi_df.loc[flogi_df['PORT NAME'] == indentifier]['Interface'].values
+        else:
+            continue
+            
         if len(port) == 1:
             #print('FCID found')
             switch_port = switch.switchname + '_' + port[0]
-            break
+            return switch_port
         else:
             #print('FCID {} not found, going to next switch...')
             continue
-    return switch_port
+    return None
+    
 
 class App:
 
@@ -300,9 +307,13 @@ class Switch():
         stdin, stdout, stderr = self.client.exec_command(cli)
         for line in stdout:
             print(line)
-            name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr = line.split()
-            sanpo_intf = SanPortChannel(self.client, name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr)
-            self.sanpo_interface.update({sanpo_intf.name : sanpo_intf})
+            try:
+                name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr = line.split()
+            except ValueError:
+                print('Getting value error')
+            else:
+                sanpo_intf = SanPortChannel(self.client, name, vsan, admin_trunk_mode, status, oper_mode, oper_speed, ip_addr)
+                self.sanpo_interface.update({sanpo_intf.name : sanpo_intf})
             
     def show_int_brief_vfcpo(self, intf = ''):
         pass
